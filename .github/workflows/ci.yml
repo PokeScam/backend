@@ -52,7 +52,7 @@ jobs:
           # For pull requests, only allow cache reads (safer)
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      # --- Check if JaCoCo XML exists ---
+      # --- Guard: check JaCoCo XML presence ---
       # Prevent coverage step from failing when tests fail or XML is missing
       - name: Check JaCoCo XML exists
         if: always()
@@ -65,10 +65,22 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # --- Generate coverage summary (Markdown) from JaCoCo XML ---
-      # This creates a readable coverage table and posts it to the job summary
-      - name: Generate coverage summary (Markdown)
+      # --- Guard: ensure XML actually contains counters (data) ---
+      - name: Check JaCoCo XML has data
         if: always() && steps.has_jacoco.outputs.exists == 'true'
+        id: jacoco_has_data
+        run: |
+          if grep -q "<counter" build/reports/jacoco/test/jacocoTestReport.xml; then
+            echo "has_data=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No <counter> elements in JaCoCo XML (likely tests didn't run to completion)."
+            echo "has_data=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Generate coverage summary (Markdown) from JaCoCo XML ---
+      # Only run if XML exists AND has counters
+      - name: Generate coverage summary (Markdown)
+        if: always() && steps.has_jacoco.outputs.exists == 'true' && steps.jacoco_has_data.outputs.has_data == 'true'
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
           # Path to JaCoCo XML report (Gradle default location)
@@ -85,9 +97,9 @@ jobs:
           thresholds: "60 80"
 
       # --- Post/update a sticky PR comment with the coverage summary ---
-      # Only runs on pull requests; updates the same comment on new commits
+      # Only runs on pull requests AND if coverage has data
       - name: Comment coverage on PR
-        if: github.event_name == 'pull_request' && steps.has_jacoco.outputs.exists == 'true'
+        if: github.event_name == 'pull_request' && steps.jacoco_has_data.outputs.has_data == 'true'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           path: code-coverage-results.md
