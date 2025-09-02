@@ -29,6 +29,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --- Ensure Gradle wrapper is executable (fixes GitHub runner issue) ---
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
       # --- Java setup ---
       # Use Temurin JDK 21 (LTS) for the build
       - name: Set up Java 21 (Temurin)

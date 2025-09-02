@@ -28,26 +28,21 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 
-
-tasks.withType<Test> {
+tasks.test {
     useJUnitPlatform()
     testLogging {
         events("passed", "skipped", "failed")
         showStandardStreams = true
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
-}
-
-tasks.test {
-    useJUnitPlatform()
     finalizedBy(tasks.jacocoTestReport)
 }
 
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
     reports {
-        xml.required.set(true)
-        html.required.set(true)
+        xml.required.set(true)   // needed for PR coverage summary
+        html.required.set(true)  // uploaded as artifact
     }
 }
 
