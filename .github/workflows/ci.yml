@@ -15,10 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 # --- Permissions ---
-# Minimal permissions + allow writing PR comments (for coverage summary)
+# Minimal permissions are enough (no PR comments posted)
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   test:
@@ -29,7 +28,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- Ensure Gradle wrapper is executable (fixes GitHub runner issue) ---
+      # --- Ensure Gradle wrapper is executable (sometimes needed on Linux) ---
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
@@ -52,69 +51,18 @@ jobs:
           # For pull requests, only allow cache reads (safer)
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      # --- Guard: check JaCoCo XML presence ---
-      # Prevent coverage step from failing when tests fail or XML is missing
-      - name: Check JaCoCo XML exists
-        if: always()
-        id: has_jacoco
-        run: |
-          if [ -f build/reports/jacoco/test/jacocoTestReport.xml ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "JaCoCo XML not found at build/reports/jacoco/test/jacocoTestReport.xml"
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # --- Guard: ensure XML actually contains counters (data) ---
-      - name: Check JaCoCo XML has data
-        if: always() && steps.has_jacoco.outputs.exists == 'true'
-        id: jacoco_has_data
-        run: |
-          if grep -q "<counter" build/reports/jacoco/test/jacocoTestReport.xml; then
-            echo "has_data=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No <counter> elements in JaCoCo XML (likely tests didn't run to completion)."
-            echo "has_data=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # --- Generate coverage summary (Markdown) from JaCoCo XML ---
-      # Only run if XML exists AND has counters
-      - name: Generate coverage summary (Markdown)
-        if: always() && steps.has_jacoco.outputs.exists == 'true' && steps.jacoco_has_data.outputs.has_data == 'true'
-        uses: irongut/CodeCoverageSummary@v1.3.0
-        with:
-          # Path to JaCoCo XML report (Gradle default location)
-          filename: build/reports/jacoco/test/jacocoTestReport.xml
-          # Create a badge and coverage indicators (green/yellow/red)
-          badge: true
-          indicators: true
-          # Fail the job if coverage is below thresholds? (disabled for now)
-          fail_below_min: false
-          # Show as Markdown and write to both: job summary + file
-          format: markdown
-          output: both
-          # Thresholds for indicator colors: <60% red, 60–80% yellow, >80% green
-          thresholds: "60 80"
-
-      # --- Post/update a sticky PR comment with the coverage summary ---
-      # Only runs on pull requests AND if coverage has data
-      - name: Comment coverage on PR
-        if: github.event_name == 'pull_request' && steps.jacoco_has_data.outputs.has_data == 'true'
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          path: code-coverage-results.md
-
       # --- Upload test report (JUnit) ---
-      # Upload JUnit test results as an artifact (always, even on failure)
+      # Always upload, even if tests fail (useful for debugging)
       - name: Upload test report (JUnit)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: junit-report
           path: build/reports/tests/test
+          if-no-files-found: warn
 
       # --- Upload coverage report (JaCoCo HTML) ---
-      # Upload JaCoCo coverage results as an artifact (always, even on failure)
+      # Keep the HTML report as an artifact for manual inspection
       - name: Upload coverage (JaCoCo HTML)
         if: always()
         uses: actions/upload-artifact@v4
@@ -122,12 +70,3 @@ jobs:
           name: jacoco-report
           path: build/reports/jacoco/test/html
           if-no-files-found: warn
-
-      # --- Upload JaCoCo XML (for debugging the coverage step) ---
-      - name: Upload JaCoCo XML
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jacoco-xml
-          path: build/reports/jacoco/test/jacocoTestReport.xml
-          if-no-files-found: ignore

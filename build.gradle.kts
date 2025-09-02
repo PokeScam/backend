@@ -49,6 +49,10 @@ tasks.jacocoTestReport {
         html.required.set(true)  // uploaded as artifact
         csv.required.set(false)
     }
+    // Only generate report if execution data exists (prevents empty XML)
+    onlyIf {
+        executionData.files.any { it.exists() && it.length() > 0 }
+    }
 }
 
 kotlin { jvmToolchain(21) }
