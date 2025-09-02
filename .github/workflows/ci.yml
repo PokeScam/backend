@@ -1,0 +1,94 @@
+name: CI
+
+# --- Trigger ---
+# Run on every push (all branches) and on pull requests
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# --- Concurrency ---
+# Ensure only one workflow per branch/PR runs at a time.
+# If a new push happens, cancel the previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# --- Permissions ---
+# Minimal permissions + allow writing PR comments (for coverage summary)
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # --- Checkout code ---
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- Java setup ---
+      # Use Temurin JDK 21 (LTS) for the build
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # --- Build & test with Gradle ---
+      # Gradle Build Action:
+      # - validates Gradle wrapper
+      # - caches dependencies & build outputs for faster builds
+      - name: Gradle build & test
+        uses: gradle/gradle-build-action@v3
+        with:
+          arguments: clean test jacocoTestReport
+          # For pull requests, only allow cache reads (safer)
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      # --- Generate coverage summary (Markdown) from JaCoCo XML ---
+      # This creates a readable coverage table and posts it to the job summary
+      - name: Generate coverage summary (Markdown)
+        if: always() # run even if tests fail, so we still see partial coverage
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          # Path to JaCoCo XML report (Gradle default location)
+          filename: build/reports/jacoco/test/jacocoTestReport.xml
+          # Create a badge and coverage indicators (green/yellow/red)
+          badge: true
+          indicators: true
+          # Fail the job if coverage is below thresholds? (disabled for now)
+          fail_below_min: false
+          # Show as Markdown and write to both: job summary + file
+          format: markdown
+          output: both
+          # Thresholds for indicator colors: <60% red, 60–80% yellow, >80% green
+          thresholds: "60 80"
+
+      # --- Post/update a sticky PR comment with the coverage summary ---
+      # Only runs on pull requests; updates the same comment on new commits
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: code-coverage-results.md
+
+      # --- Upload test report (JUnit) ---
+      # Upload JUnit test results as an artifact (always, even on failure)
+      - name: Upload test report (JUnit)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: build/reports/tests/test
+
+      # --- Upload coverage report (JaCoCo HTML) ---
+      # Upload JaCoCo coverage results as an artifact (always, even on failure)
+      - name: Upload coverage (JaCoCo)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: build/reports/jacoco/test/html
