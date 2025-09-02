@@ -28,6 +28,10 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 
+jacoco {
+    toolVersion = "0.8.12"
+}
+
 tasks.test {
     useJUnitPlatform()
     testLogging {
@@ -43,6 +47,7 @@ tasks.jacocoTestReport {
     reports {
         xml.required.set(true)   // needed for PR coverage summary
         html.required.set(true)  // uploaded as artifact
+        csv.required.set(false)
     }
 }
 
