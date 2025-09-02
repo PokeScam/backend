@@ -1,0 +1,72 @@
+name: CI
+
+# --- Trigger ---
+# Run on every push (all branches) and on pull requests
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# --- Concurrency ---
+# Ensure only one workflow per branch/PR runs at a time.
+# If a new push happens, cancel the previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# --- Permissions ---
+# Minimal permissions are enough (no PR comments posted)
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # --- Checkout code ---
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- Ensure Gradle wrapper is executable (sometimes needed on Linux) ---
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      # --- Java setup ---
+      # Use Temurin JDK 21 (LTS) for the build
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # --- Build & test with Gradle ---
+      # Gradle Build Action:
+      # - validates Gradle wrapper
+      # - caches dependencies & build outputs for faster builds
+      - name: Gradle build & test
+        uses: gradle/gradle-build-action@v3
+        with:
+          arguments: clean test jacocoTestReport
+          # For pull requests, only allow cache reads (safer)
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      # --- Upload test report (JUnit) ---
+      # Always upload, even if tests fail (useful for debugging)
+      - name: Upload test report (JUnit)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: build/reports/tests/test
+          if-no-files-found: warn
+
+      # --- Upload coverage report (JaCoCo HTML) ---
+      # Keep the HTML report as an artifact for manual inspection
+      - name: Upload coverage (JaCoCo HTML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: build/reports/jacoco/test/html
+          if-no-files-found: warn

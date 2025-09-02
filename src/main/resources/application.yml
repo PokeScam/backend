@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: pokescan-api
+  profiles:
+    default: dev
+  datasource:
+    url: jdbc:sqlite:${DB_FILE:./data/pokescan.db}
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      connectionInitSql: PRAGMA foreign_keys=ON;
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.community.dialect.SQLiteDialect
+        format_sql: true
+  sql:
+    init:
+      mode: never
+
+logging.level.org.hibernate.SQL: info

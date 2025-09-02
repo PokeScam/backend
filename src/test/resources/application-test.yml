@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: jdbc:sqlite:${java.io.tmpdir}/pokescan-test.db
+    driver-class-name: org.sqlite.JDBC
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    defer-datasource-initialization: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.community.dialect.SQLiteDialect
+
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:testdata/test-data.sql
+
+logging:
+  level:
+    root: INFO
+    org.springframework.test: DEBUG
+    org.hibernate.sql: DEBUG
