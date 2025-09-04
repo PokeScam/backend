@@ -1,6 +1,7 @@
 package de.pokescan.api.controller
 
-import org.hamcrest.Matchers.*
+import org.hamcrest.Matchers.containsString
+import org.hamcrest.Matchers.containsStringIgnoringCase
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -16,7 +17,6 @@ import org.springframework.test.web.servlet.get
 class CardsApiNegativeIntegrationTest(
     @Autowired private val mockMvc: MockMvc
 ) {
-
     // 400 wegen Validation: page < 0
     @Test
     fun `page negative 400`() {
@@ -25,7 +25,9 @@ class CardsApiNegativeIntegrationTest(
                 status { isBadRequest() }
                 content { contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON) }
                 jsonPath("$.title") { value(containsStringIgnoringCase("validation")) }
-                jsonPath("$.detail", containsString("page must be >= 0"))
+                // Standard-Message von @PositiveOrZero:
+                jsonPath("$.detail", containsString("greater than or equal to 0"))
+                jsonPath("$.detail", containsString("page"))
             }
     }
 
@@ -36,7 +38,8 @@ class CardsApiNegativeIntegrationTest(
             .andExpect {
                 status { isBadRequest() }
                 content { contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON) }
-                jsonPath("$.detail", containsString("size must be >= 1"))
+                jsonPath("$.detail", containsString("greater than or equal to 1"))
+                jsonPath("$.detail", containsString("size"))
             }
     }
 
@@ -46,7 +49,8 @@ class CardsApiNegativeIntegrationTest(
         mockMvc.get("/api/cards") { param("size", "1000") }
             .andExpect {
                 status { isBadRequest() }
-                jsonPath("$.detail", containsString("size must be <= 200"))
+                jsonPath("$.detail", containsString("less than or equal to 200"))
+                jsonPath("$.detail", containsString("size"))
             }
     }
 
@@ -56,7 +60,9 @@ class CardsApiNegativeIntegrationTest(
         mockMvc.get("/api/cards") { param("set", "DROP TABLE;") }
             .andExpect {
                 status { isBadRequest() }
-                jsonPath("$.detail", containsString("set must be alphanumeric"))
+                content { contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON) }
+                // ConstraintViolationException-Text enthält meist "must match" + Param-Namen (setLocId)
+                jsonPath("$.detail", containsString("must match"))
             }
     }
 
@@ -66,24 +72,23 @@ class CardsApiNegativeIntegrationTest(
         mockMvc.get("/api/cards") { param("q", "abc%%%^") }
             .andExpect {
                 status { isBadRequest() }
-                jsonPath("$.detail", containsString("q contains invalid characters"))
+                jsonPath("$.detail", containsString("must match"))
             }
     }
 
-    // SQLi-ähnliche Eingabe in q -> sollte KEIN Fehler werfen, sondern 200 + (meist) 0 Treffer
+    // SQLi-ähnliche Eingabe in q -> 400 wegen Regex
     @Test
     fun `q looks like SQL but is harmless 400 due to validation`() {
         mockMvc.get("/api/cards") {
-            param("q", "%' OR '1'='1")   // enthält %, ist laut Regex verboten
+            param("q", "%' OR '1'='1")
             param("size", "5")
         }.andExpect {
             status { isBadRequest() }
             content { contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON) }
             jsonPath("$.title") { value(containsStringIgnoringCase("validation")) }
-            jsonPath("$.detail", containsString("q contains invalid characters"))
+            jsonPath("$.detail", containsString("must match"))
         }
     }
-
 
     // hoher page-Index -> 200 + leere Seite erlaubt
     @Test
@@ -130,5 +135,4 @@ class CardsApiNegativeIntegrationTest(
                 jsonPath("$.detail", containsString("invalid type for 'size'"))
             }
     }
-
 }

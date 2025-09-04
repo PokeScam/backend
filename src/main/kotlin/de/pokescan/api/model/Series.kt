@@ -5,12 +5,17 @@ import jakarta.persistence.*
 @Entity
 @Table(name = "series")
 class Series(
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long = 0,
-    @Column(name = "series_id", unique = true, nullable = false)
+    @Id
+    @Column(name = "series_id")
     val seriesId: String,
-    @Column(nullable = false)
-    val name: String,
+
+    @Column(name = "name")
+    val name: String? = null,
+
     @Column(name = "release_year")
-    val releaseYear: Int?
+    val releaseYear: Int? = null,
+
+    // optional – nur falls vorhanden; sonst gern entfernen
+    @Column(name = "lang")
+    val lang: String? = null
 )

@@ -4,7 +4,7 @@ spring:
   profiles:
     default: dev
   datasource:
-    url: jdbc:sqlite:${DB_FILE:./data/pokescan.db}
+    url: jdbc:sqlite:${DB_FILE:./data/pokepouch_cards.db}
     driver-class-name: org.sqlite.JDBC
     hikari:
       connectionInitSql: PRAGMA foreign_keys=ON;

@@ -1,4 +1,7 @@
 /src/test/resources/testdata/cards.db
-/data/pokescan.db
 /build/
 /.gradle/
+/data/pokepouch_cards.db
+/.kotlin/sessions/kotlin-compiler-9528693575498331791.salive
+/data/pokepouch_cards.db-shm
+/data/pokepouch_cards.db-wal
