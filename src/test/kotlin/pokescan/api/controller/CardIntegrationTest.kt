@@ -149,8 +149,7 @@ class CardsIntegrationTest(
             resp.response.contentAsString, object : TypeReference<PageResponse<CardDto>>() {})
         assumeTrue(page.content.isNotEmpty(), "no cards")
 
-        page.content.forEach {
-            // nur prüfen, dass Felder vorhanden sind (Mapping klappt) – Inhalte können 0/1 sein.
+        page.content.forEach { it ->
             assert(it.variants.normal != null)
             assert(it.variants.holo != null)
             assert(it.variants.reverse != null)
@@ -168,7 +167,6 @@ class CardsIntegrationTest(
 
         page.content.forEach {
             assert(it.set.id.isNotBlank())
-            // name/releaseDate/seriesId können null sein – Mapping soll aber nicht crashen
         }
     }
 }
